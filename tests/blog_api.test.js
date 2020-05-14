@@ -3,16 +3,18 @@ const supertest = require('supertest')
 const app = require('../app')
 const helper = require('./test_helper')
 const Blog = require('../models/blog')
+const User = require('../models/user')
 const api = supertest(app)
+const bcrypt = require('bcrypt')
 
 beforeEach(async () => {
-    await Note.deleteMany({})
-  
-    const noteObjects = helper.initialNotes
-      .map(note => new Note(note))
-    const promiseArray = noteObjects.map(note => note.save())
+    await Blog.deleteMany({})
+
+    const noteObjects = helper.initialBlogs
+        .map(blog => new Blog(blog))
+    const promiseArray = noteObjects.map(blog => blog.save())
     await Promise.all(promiseArray)
-  })
+})
 
 test('blogs are returned as json', async () => {
     const response = await api
@@ -64,10 +66,12 @@ describe('addition of a new blog', () => {
     })
 
     test('note without title and author is not added', async () => {
-        const newBlog = {
+        const newBlog = new Blog({
+            title: '',
+            author: '',
             url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/',
             likes: 42
-        }
+        }, { _id: false })
 
         await api
             .post('/api/blogs')
@@ -110,7 +114,6 @@ describe('update of the blog', () => {
             .send(blogToUpdate)
 
         const blogsAfterPosting = await helper.blogsInDb()
-        console.log(updatedBlog.body)
         expect(blogsAfterPosting).toHaveLength(helper.initialBlogs.length)
         expect(updatedBlog.body.likes).toEqual(blogToUpdate.likes)
     })
@@ -120,6 +123,95 @@ describe('update of the blog', () => {
             .put(`/api/blogs/0`)
             .send(blogToUpdate)
             .expect(400)
+    })
+})
+
+describe('adding new user', () => {
+    beforeEach(async () => {
+        await User.deleteMany({})
+        const saltRounds = 10
+        const passwordHash = await bcrypt.hash('123456789', saltRounds)
+    
+        const user = new User({
+            username: 'bananica',
+            name: 'Ana Banana',
+            passwordHash: passwordHash,
+        })
+
+        await user.save()
+    })
+
+    test('succeeds with valid data and returns status code 201', async () => {
+        const usersAtStart = await helper.usersInDb()
+        
+        const user = {
+            username: "lubenica",
+            name: "Jagoda Banana",
+            password: "123456"
+        }
+
+        await api
+            .post(`/api/users/`)
+            .send(user)
+            .expect(201)
+
+        const usersAfterAdding = await helper.usersInDb()
+        expect(usersAfterAdding).toHaveLength(usersAtStart.length + 1)
+
+        expect(usersAfterAdding.map(u => u.username)).toContain(user.username)
+    })
+
+    test('returns status code 400 if password is missing)', async () => {
+        const usersAtStart = await helper.usersInDb()
+
+        const user = {
+            username: 'jagodicabobica',
+            name: 'Jagoda J.'
+        }
+
+        await api
+            .post(`/api/users/`)
+            .send(user)
+            .expect(400)
+
+        const usersAfterAdding = await helper.usersInDb()
+        expect(usersAfterAdding).toHaveLength(usersAtStart.length)
+    })
+
+    test('returns status code 400 with invalid username', async () => {
+        const usersAtStart = await helper.usersInDb()
+
+        const user = {
+            username: 'ba',
+            name: 'Ana Banana',
+            password: '123456'
+        }
+
+        await api
+            .post(`/api/users/`)
+            .send(user)
+            .expect(400)
+
+        const usersAfterAdding = await helper.usersInDb()
+        expect(usersAfterAdding).toHaveLength(usersAtStart.length)
+    })
+
+    test('returns status code 400 with existing username', async () => {
+        const usersAtStart = await helper.usersInDb()
+
+        const user = {
+            username: 'bananica',
+            name: 'Ana Druga',
+            password: '123456789'
+        }
+
+        await api
+            .post(`/api/users/`)
+            .send(user)
+            .expect(400)
+
+        const usersAfterAdding = await helper.usersInDb()
+        expect(usersAfterAdding).toHaveLength(usersAtStart.length)
     })
 })
 
