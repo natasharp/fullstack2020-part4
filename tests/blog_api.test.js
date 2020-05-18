@@ -14,6 +14,17 @@ beforeEach(async () => {
         .map(blog => new Blog(blog))
     const promiseArray = noteObjects.map(blog => blog.save())
     await Promise.all(promiseArray)
+
+    await User.deleteMany({})
+    const saltRounds = 10
+    const passwordHash = await bcrypt.hash('123456789', saltRounds)
+    const user = new User({
+        _id: "5a422a851b54a676234d1755",
+        username: "bananica",
+        name: "Ana Banana",
+        passwordHash
+    })
+    await user.save()
 })
 
 test('blogs are returned as json', async () => {
@@ -35,14 +46,19 @@ describe('addition of a new blog', () => {
             title: 'Be water my friend',
             author: 'Brane Games',
             url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/',
-            likes: 10
+            likes: 10,
+            user: '5a422a851b54a676234d1755'
         }
+
+        const token = helper.generateToken('bananica', '5a422a851b54a676234d1755')
+        const authorization = 'Bearer ' + token.toString()
+
         await api
             .post('/api/blogs')
+            .set('Authorization', authorization)
             .send(newBlog)
             .expect(201)
             .expect('Content-Type', /application\/json/)
-
 
         const blogsAtEnd = await helper.blogsInDb()
         expect(blogsAtEnd.length).toBe(helper.initialBlogs.length + 1)
@@ -51,32 +67,63 @@ describe('addition of a new blog', () => {
         expect(contents).toContain(newBlog.title)
     })
 
-    test('return value 0 for likes property when property is missing from the request ', async () => {
+    test('returns value 0 for likes property when property is missing from the request ', async () => {
         const newBlog = {
             title: 'Be water my friend',
             author: 'Brane Games',
-            url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/'
+            url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/',
+            user: '5a422a851b54a676234d1755'
         }
+
+        const token = helper.generateToken('bananica', '5a422a851b54a676234d1755')
+        const authorization = 'Bearer ' + token.toString()
 
         const retVal = await api
             .post('/api/blogs')
+            .set('Authorization', authorization)
             .send(newBlog)
 
         expect(retVal.body.likes).toBe(0)
     })
 
-    test('note without title and author is not added', async () => {
+    test('with note without title and author is not added', async () => {
         const newBlog = new Blog({
             title: '',
             author: '',
             url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/',
-            likes: 42
-        }, { _id: false })
+            likes: 42,
+            user: '5a422a851b54a676234d1755'
+        })
+
+        const token = helper.generateToken('bananica', '5a422a851b54a676234d1755')
+        const authorization = 'Bearer ' + token.toString()
 
         await api
             .post('/api/blogs')
+            .set('Authorization', authorization)
             .send(newBlog)
             .expect(400)
+
+        const blogsAfterPosting = await helper.blogsInDb()
+        expect(blogsAfterPosting).toHaveLength(helper.initialBlogs.length)
+    })
+
+    test('returns 401 when token is not provided', async () => {
+        const newBlog = {
+            title: 'Be water my friend',
+            author: 'Brane Games',
+            url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/',
+            likes: 10,
+            user: '5a422a851b54a676234d1755'
+        }
+
+        const authorization = 'Bearer '
+
+        await api
+            .post('/api/blogs')
+            .set('Authorization', authorization)
+            .send(newBlog)
+            .expect(401)
 
         const blogsAfterPosting = await helper.blogsInDb()
         expect(blogsAfterPosting).toHaveLength(helper.initialBlogs.length)
@@ -88,8 +135,12 @@ describe('remove of the blog', () => {
         const blogsAtStart = await helper.blogsInDb()
         const blogToDelete = blogsAtStart[0]
 
+        const token = helper.generateToken('bananica', '5a422a851b54a676234d1755')
+        const authorization = 'Bearer ' + token.toString()
+
         await api
             .delete(`/api/blogs/${blogToDelete.id}`)
+            .set('Authorization', authorization)
             .expect(204)
 
         const blogsAfterPosting = await helper.blogsInDb()
@@ -102,7 +153,8 @@ describe('update of the blog', () => {
         title: 'Converting Shadertoy Shaders To Godot ',
         author: 'Brane Games',
         url: 'https://branegames.com/blog/converting-shadertoy-shaders-to-godot/',
-        likes: 122
+        likes: 122,
+        user: '5a422a851b54a676234d1755'
     }
 
     test('succeeds with valid data', async () => {
@@ -127,27 +179,13 @@ describe('update of the blog', () => {
 })
 
 describe('adding new user', () => {
-    beforeEach(async () => {
-        await User.deleteMany({})
-        const saltRounds = 10
-        const passwordHash = await bcrypt.hash('123456789', saltRounds)
-    
-        const user = new User({
-            username: 'bananica',
-            name: 'Ana Banana',
-            passwordHash: passwordHash,
-        })
-
-        await user.save()
-    })
-
     test('succeeds with valid data and returns status code 201', async () => {
         const usersAtStart = await helper.usersInDb()
-        
+
         const user = {
-            username: "lubenica",
-            name: "Jagoda Banana",
-            password: "123456"
+            username: "apple",
+            name: "Apple A.",
+            password: "12345six"
         }
 
         await api
@@ -201,8 +239,8 @@ describe('adding new user', () => {
 
         const user = {
             username: 'bananica',
-            name: 'Ana Druga',
-            password: '123456789'
+            name: 'Ana Second',
+            password: '0123456789'
         }
 
         await api
