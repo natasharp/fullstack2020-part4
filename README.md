@@ -5,13 +5,12 @@ This repository contains exercise solutions for part 4 of the [Full Stack Open 2
 ## Part 4 - [Testing Express servers, user administration](https://fullstackopen.com/en/part4)
 Part 4 covers writing unit and integration tests for the backend, user authorization, and token authentication.
 This repository contains REST API for tracking blog entries for the bloglist React app that is created in part 5.
-The bloglist app deployed with Heroku is available [here].
 
-##Before Starting
+## Before Starting
 
 Provide environmental variables in .env file as MONGODB_URI, TEST_MONGODB_URI, PORT and SECRET
 
-##Available Scripts
+## Available Scripts
 
 ### `npm start`
 
