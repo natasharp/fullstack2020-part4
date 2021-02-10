@@ -23,3 +23,7 @@ Launches the server in development mode using the nodemon library for relaunchin
 ### `npm run test`
 
 Launches the unit and integration tests
+
+### `npm run start:test`
+
+Launches the server in test mode, with NODE_ENV set to test
